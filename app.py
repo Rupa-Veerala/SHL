@@ -1,19 +1,21 @@
-import streamlit as st
-import requests
+from fastapi import FastAPI
+from pydantic import BaseModel
+from model import AssessmentRecommender
+from utils import load_assessments
 
-API_URL = "http://localhost:8000/recommend"
+app = FastAPI()
 
-st.title("SHL Assessment Recommender")
+df = load_assessments()
+recommender = AssessmentRecommender(df)
 
-query = st.text_area("Enter job description or search query:")
+class QueryRequest(BaseModel):
+    text: str
 
-if st.button("Recommend Assessments"):
-    response = requests.post(API_URL, json={"text": query})
-    recommendations = response.json()
+@app.post("/recommend")
+def get_recommendations(request: QueryRequest):
+    results = recommender.recommend(request.text)
+    return results.to_dict(orient="records")
 
-    for rec in recommendations:
-        st.write(f"### [{rec['name']}]({rec['url']})")
-        st.write(f"- **Duration**: {rec['duration']} mins")
-        st.write(f"- **Remote Testing**: {rec['remote']}")
-        st.write(f"- **Adaptive/IRT**: {rec['adaptive']}")
-        st.write("---")
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
